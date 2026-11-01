@@ -602,8 +602,8 @@ const METRIC_HELP = {
   },
   buyHoldReturn: {
     title: '同期买入持有',
-    description: '回测范围所选标的在同一区间的等权买入持有累计收益率。',
-    note: '按区间首末有效收盘价等权平均；仅统计首末均有行情的标的。全市场时对加载到的全部标的计算。',
+    description: '回测范围所选标的在同一区间的等权买入持有累计收益率，与策略回测共用同一套前复权收盘价。',
+    note: '按区间首末有效收盘价等权平均。这是价格口径，不是基金净值口径；ETF 若未同步除权因子，现金分红不会进入价格，红利 ETF 会明显低于「今年以来净值涨幅」。',
   },
   excessReturn: {
     title: '超额收益',
@@ -1601,6 +1601,10 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
   const minuteStartMismatch = isMinuteStrategy && !!minuteEarliest && start < minuteEarliest
   // 日线/指标数据覆盖不足: 请求起点早于本地最早日时, 实际只会跑有数据的区间
   const dailyStartBeyondData = !!earliestDate && !!start && start < earliestDate
+  // ETF 无除权因子时 close=raw, 买入持有是价格涨跌, 红利 ETF 会低于净值口径
+  const etfAdjFactorMissing = assetType === 'etf'
+    && dataStatus.isSuccess
+    && (dataStatus.data?.storage?.etf_adj_factor_files ?? 0) <= 0
 
   useEffect(() => {
     if (highGranularity && minuteExitTriggerSupported && !isMinuteStrategy) return
@@ -2574,6 +2578,11 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
                   <Stat label={<MetricLabel label="最终权益" metric="finalEquity" />} value={pick('final_equity') != null ? fmtPrice(pick('final_equity') as number) : '—'} />
                 )}
               </div>
+              {etfAdjFactorMissing && buyHoldReturn != null && (
+                <p className="mt-3 text-[11px] leading-4 text-amber-400">
+                  本地尚无 ETF 除权因子，同期买入持有按场内收盘价计算，不含现金分红。红利 ETF（如 510880）会低于基金净值涨幅；请到「数据」页同步 ETF 除权因子并重算指标后再回测。
+                </p>
+              )}
             </div>
 
             {selectionStages.length > 0 && (

@@ -1599,6 +1599,8 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
   // 分钟回测窗口守卫: 开始日期早于本地分钟K起点会被后端拒绝, 前置警示
   const minuteEarliest = minuteDataStatus?.minute?.earliest_date
   const minuteStartMismatch = isMinuteStrategy && !!minuteEarliest && start < minuteEarliest
+  // 日线/指标数据覆盖不足: 请求起点早于本地最早日时, 实际只会跑有数据的区间
+  const dailyStartBeyondData = !!earliestDate && !!start && start < earliestDate
 
   useEffect(() => {
     if (highGranularity && minuteExitTriggerSupported && !isMinuteStrategy) return
@@ -1940,6 +1942,17 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
               <SlidersHorizontal className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {earliestDate && (
+            <p className="mt-2 text-[10px] leading-4 text-muted">
+              本地{backtestDataLabel} {earliestDate} ~ {backtestDataStatus?.latest_date ?? '今天'}
+              {dailyStartBeyondData && (
+                <span className="mt-0.5 block text-amber-400">
+                  所选开始日早于数据起点，实际只会回测有数据的区间。可到「数据」页向前扩展历史，或点「全部」对齐本地覆盖。
+                </span>
+              )}
+            </p>
+          )}
 
           {rangeSettingsOpen && (
             <div className="mt-2 rounded-input border border-border/60 bg-base/50 p-2">

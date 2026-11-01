@@ -171,6 +171,33 @@ def test_basic_filter_only_limits_entries_not_panel_rows():
         "entry_trigger_filtered": 0,
         "entry_trigger_enabled": False,
     }
+    # 正式区间收盘 10 → 12, 等权买入持有 = 20%
+    assert result.stats["buy_hold_return"] == 0.2
+    assert result.stats["buy_hold_n"] == 1
+
+
+def test_equal_weight_buy_hold_return_averages_complete_symbols_only():
+    labels = ("2024-01-01", "2024-01-02", "2024-01-03")
+    close = np.array([
+        [10.0, 20.0, np.nan],  # C 首日无行情
+        [11.0, 22.0, 30.0],
+        [12.0, 30.0, 33.0],    # A:+20%, B:+50%, C 不计入
+    ], dtype=np.float64)
+
+    buy_hold, count = StrategyBacktestService._equal_weight_buy_hold_return(
+        close, labels, date(2024, 1, 1), date(2024, 1, 3),
+    )
+    assert count == 2
+    assert buy_hold == 0.35
+
+    # full 模式矩阵可能延伸到 end 之后; 买入持有只截正式区间
+    extended = np.vstack([close, [[13.0, 40.0, 40.0]]])
+    extended_labels = labels + ("2024-01-04",)
+    buy_hold2, count2 = StrategyBacktestService._equal_weight_buy_hold_return(
+        extended, extended_labels, date(2024, 1, 1), date(2024, 1, 3),
+    )
+    assert count2 == 2
+    assert buy_hold2 == 0.35
 
 
 def test_non_matrix_strategy_applies_regime_filter_and_reports_config(tmp_path):

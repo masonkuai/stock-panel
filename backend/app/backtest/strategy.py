@@ -2035,6 +2035,14 @@ class StrategyBacktestService:
             if result_policy.include_benchmark
             else []
         )
+        self._attach_buy_hold_stats(
+            result.stats,
+            market_matrix.close,
+            market_matrix.timestamp_labels,
+            config.start,
+            config.end,
+            enabled=result_policy.include_benchmark,
+        )
 
         # 构建策略信息
         strategy_info = {
@@ -2352,6 +2360,14 @@ class StrategyBacktestService:
             self._build_benchmark_curve(config.start, config.end)
             if result_policy.include_benchmark
             else []
+        )
+        self._attach_buy_hold_stats(
+            result.stats,
+            market_matrix.close,
+            market_matrix.timestamp_labels,
+            config.start,
+            config.end,
+            enabled=result_policy.include_benchmark,
         )
         strategy_info = {
             "id": s.meta.get("id", config.strategy_id),
@@ -2856,6 +2872,63 @@ class StrategyBacktestService:
             for row in df.iter_rows(named=True)
             if row["close"] is not None
         ]
+
+    @staticmethod
+    def _equal_weight_buy_hold_return(
+        close: np.ndarray,
+        timestamp_labels: tuple[str, ...] | list[str],
+        start: date,
+        end: date,
+    ) -> tuple[float | None, int]:
+        """回测范围标的的等权买入持有收益。
+
+        口径: 正式回测区间 [start, end] 内首末交易日有效收盘价之比的算术平均。
+        仅纳入首末均有有效收盘的标的, 中途上市/退市不参与, 避免区间长度不一致。
+        """
+        if close.ndim != 2 or close.shape[0] == 0 or close.shape[1] == 0:
+            return None, 0
+        if len(timestamp_labels) != close.shape[0]:
+            return None, 0
+
+        start_text = str(start)
+        end_text = str(end)
+        in_range = [
+            index
+            for index, label in enumerate(timestamp_labels)
+            if start_text <= str(label)[:10] <= end_text
+        ]
+        if len(in_range) < 2:
+            return None, 0
+
+        first = np.asarray(close[in_range[0]], dtype=np.float64)
+        last = np.asarray(close[in_range[-1]], dtype=np.float64)
+        valid = np.isfinite(first) & np.isfinite(last) & (first > 0)
+        count = int(valid.sum())
+        if count == 0:
+            return None, 0
+        returns = last[valid] / first[valid] - 1.0
+        return round(float(np.mean(returns)), 4), count
+
+    @classmethod
+    def _attach_buy_hold_stats(
+        cls,
+        stats: dict,
+        close: np.ndarray,
+        timestamp_labels: tuple[str, ...] | list[str],
+        start: date,
+        end: date,
+        *,
+        enabled: bool,
+    ) -> None:
+        if not enabled:
+            return
+        buy_hold, count = cls._equal_weight_buy_hold_return(
+            close, timestamp_labels, start, end,
+        )
+        if buy_hold is None:
+            return
+        stats["buy_hold_return"] = buy_hold
+        stats["buy_hold_n"] = count
 
     # ── 工具 ──
 

@@ -600,6 +600,11 @@ const METRIC_HELP = {
     description: '同一回测区间内上证指数的累计收益率。',
     note: '用于判断策略表现是否主要来自市场整体涨跌。',
   },
+  buyHoldReturn: {
+    title: '同期买入持有',
+    description: '回测范围所选标的在同一区间的等权买入持有累计收益率。',
+    note: '按区间首末有效收盘价等权平均；仅统计首末均有行情的标的。全市场时对加载到的全部标的计算。',
+  },
   excessReturn: {
     title: '超额收益',
     description: '策略总收益率减去同期上证指数收益率。',
@@ -1327,6 +1332,7 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
   }, [result?.benchmark_curve])
 
   const strategyReturn = pick('total_return') as number | null
+  const buyHoldReturn = pick('buy_hold_return') as number | null
   const excessReturn = strategyReturn != null && benchmarkReturn != null
     ? strategyReturn - benchmarkReturn
     : null
@@ -1356,6 +1362,8 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
     lines.push(`净值曲线天数,${result.equity_curve?.length ?? 0}`)
     lines.push(`完成交易数,${result.trades?.length ?? 0}`)
     lines.push(`总收益,${pct(strategyReturn)}`)
+    lines.push(`同期买入持有,${pct(buyHoldReturn)}`)
+    if (s.buy_hold_n != null) lines.push(`买入持有标的数,${num(s.buy_hold_n)}`)
     lines.push(`年化收益,${pct(s.annual_return)}`)
     lines.push(`同期基准,${pct(benchmarkReturn)}`)
     lines.push(`超额收益,${pct(excessReturn)}`)
@@ -2411,6 +2419,9 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
               <span>最佳 <b className="text-bull num">{fmtPct(result.stats.best)}</b></span>
               <span>最差 <b className="text-bear num">{fmtPct(result.stats.worst)}</b></span>
               <span>基准(上证) <b className="text-foreground num">{fmtPct(result.stats.benchmark_return)}</b></span>
+              {result.stats.buy_hold_return != null && (
+                <span>同期买入持有 <b className="text-foreground num">{fmtPct(result.stats.buy_hold_return)}</b></span>
+              )}
             </div>
 
             {/* 累计超额曲线 (复用 StrategyNavChart) */}
@@ -2520,6 +2531,8 @@ export function StrategyBacktest({ loadCandidate, onLoadConsumed }: {
               <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
                 <Stat label={<MetricLabel label="总收益" metric="totalReturn" />} value={strategyReturn != null ? fmtPct(strategyReturn) : '—'}
                   color={statValueColor(strategyReturn)} />
+                <Stat label={<MetricLabel label="同期买入持有" metric="buyHoldReturn" />} value={buyHoldReturn != null ? fmtPct(buyHoldReturn) : '—'}
+                  color={statValueColor(buyHoldReturn)} />
                 <Stat label={<MetricLabel label="年化" metric="annualReturn" />} value={pick('annual_return') != null ? fmtPct(pick('annual_return') as number) : '—'}
                   color={statValueColor(pick('annual_return') as number)} />
                 <Stat label={<MetricLabel label="同期上证" metric="benchmarkReturn" />} value={benchmarkReturn != null ? fmtPct(benchmarkReturn) : '—'}

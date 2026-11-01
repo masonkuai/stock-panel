@@ -257,6 +257,9 @@ def scoring_value_expr(columns: Collection[str], name: str) -> pl.Expr | None:
         ).over("symbol")
     if name == "kdj_kd_diff":
         return pl.col("kdj_k") - pl.col("kdj_d")
+    if name == "macd_dif_delta_pct":
+        delta = pl.col("macd_dif") - pl.col("macd_dif").shift(1).over("symbol")
+        return _ratio(delta, pl.col("close"))
     return None
 
 

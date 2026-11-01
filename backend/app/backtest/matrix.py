@@ -3888,7 +3888,7 @@ _MATRIX_COMPUTED_FEATURES = frozenset({
     "boll_upper", "boll_lower", "boll_position", "boll_width",
     "high_60d", "low_60d", "annual_vol_20d",
     "macd_dif", "macd_dea", "macd_hist",
-    "macd_dif_pct", "macd_dea_pct", "macd_hist_pct",
+    "macd_dif_pct", "macd_dea_pct", "macd_hist_pct", "macd_dif_delta_pct",
     "kdj_k", "kdj_d", "kdj_j", "atr_14", "atr_pct",
     "vol_ma5", "vol_ma10", "vol_ratio_5d", "vol_ratio_10d", "vol_trend_5_10",
     "turnover_ratio_5d", "log_amount", "amount_ratio_5d",
@@ -3977,6 +3977,10 @@ def _compute_matrix_feature(market: MarketDataMatrix, name: str) -> np.ndarray:
     if name in {"macd_dif_pct", "macd_dea_pct", "macd_hist_pct"}:
         source = matrix_feature(market, name.removesuffix("_pct"))
         return _matrix_ratio(source, market.close)
+    if name == "macd_dif_delta_pct":
+        dif = matrix_feature(market, "macd_dif")
+        delta = dif - valid_shift(dif, 1, np.isfinite(dif))
+        return _matrix_ratio(delta, market.close)
     if name in {"vol_ratio_5d", "vol_ratio_10d"}:
         window = 5 if name == "vol_ratio_5d" else 10
         volume_valid = close_valid & np.isfinite(market.volume)

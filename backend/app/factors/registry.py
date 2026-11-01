@@ -302,6 +302,12 @@ _CATALOG: tuple[FactorSpec, ...] = (
         "KDJ K值 - D值, 正值代表快线在慢线上方",
         deps=frozenset({"kdj_k", "kdj_d"}),
     ),
+    _virtual(
+        "macd_dif_delta_pct", "DIF日变化率", "趋势",
+        "(今日MACD DIF - 昨日DIF) / 收盘价, 消除股价尺度影响, 衡量DIF斜率变化"
+        "(走平/抬升/走弱信号判断用; 跨股票统一阈值须用此归一化版本, 不用原始DIF差值)",
+        deps=frozenset({"macd_dif", "close"}), warmup_bars=2,
+    ),
 )
 
 _REGISTRY: dict[str, FactorSpec] = {}

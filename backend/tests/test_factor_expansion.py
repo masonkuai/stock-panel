@@ -35,6 +35,7 @@ MOM60 = np.concatenate([np.full(60, np.nan), CLOSE[60:] / CLOSE[:-60] - 1.0])
 KDJ_K = 50.0 + 15.0 * np.cos(T / 11.0)
 KDJ_D = 50.0 + 5.0 * np.sin(T / 13.0)
 AMPLITUDE = 0.02 + 0.0001 * T
+MACD_DIF = 0.5 * np.sin(T / 15.0) + 0.001 * T  # 趋势叠加震荡, 覆盖抬升/走弱/走平
 
 
 def _panel() -> pl.DataFrame:
@@ -55,6 +56,7 @@ def _panel() -> pl.DataFrame:
         "kdj_k": KDJ_K,
         "kdj_d": KDJ_D,
         "amplitude": AMPLITUDE,
+        "macd_dif": MACD_DIF,
     })
 
 
@@ -82,6 +84,16 @@ def test_mom_accel_and_kdj_diff_column_algebra() -> None:
     delta = np.full(N_DAYS, np.nan)
     delta[5:] = RSI[5:] - RSI[:-5]
     assert np.allclose(_col(frame, "rsi_14_delta_5d")[6:], delta[6:], atol=1e-12)
+
+
+def test_macd_dif_delta_pct_golden() -> None:
+    """DIF日变化率 = (今日DIF - 昨日DIF) / 收盘价; 首根 bar 无昨日值须为空(无前视)。"""
+    frame = _materialize(["macd_dif_delta_pct"])
+    got = _col(frame, "macd_dif_delta_pct")
+    golden = np.full(N_DAYS, np.nan)
+    golden[1:] = (MACD_DIF[1:] - MACD_DIF[:-1]) / CLOSE[1:]
+    assert np.allclose(got[1:], golden[1:], atol=1e-12)
+    assert np.isnan(got[0])
 
 
 def test_overnight_and_intraday_decomposition() -> None:

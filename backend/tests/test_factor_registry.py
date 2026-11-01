@@ -99,6 +99,11 @@ GOLDEN_COLUMNS: list[dict] = [
     {"id": "position_240d", "label": "一年价格位置", "group": "价格位置", "desc": "收盘价在近240个交易日最低价到最高价之间的位置 (0~1)"},
     {"id": "distance_to_high_240d", "label": "距一年高点", "group": "价格位置", "desc": "收盘价 / 240日最高收盘价 - 1, 接近0代表贴近一年新高"},
     {"id": "kdj_kd_diff", "label": "KDJ K-D差", "group": "趋势", "desc": "KDJ K值 - D值, 正值代表快线在慢线上方"},
+    {
+        "id": "macd_dif_delta_pct", "label": "DIF日变化率", "group": "趋势",
+        "desc": "(今日MACD DIF - 昨日DIF) / 收盘价, 消除股价尺度影响, 衡量DIF斜率变化"
+                "(走平/抬升/走弱信号判断用; 跨股票统一阈值须用此归一化版本, 不用原始DIF差值)",
+    },
 ]
 
 GOLDEN_VIRTUAL_DEPS: dict[str, frozenset[str]] = {
@@ -153,6 +158,7 @@ GOLDEN_VIRTUAL_DEPS: dict[str, frozenset[str]] = {
     "position_240d": frozenset({"close"}),
     "distance_to_high_240d": frozenset({"close"}),
     "kdj_kd_diff": frozenset({"kdj_k", "kdj_d"}),
+    "macd_dif_delta_pct": frozenset({"macd_dif", "close"}),
 }
 
 GOLDEN_WARMUP: dict[str, int] = {
@@ -182,6 +188,7 @@ GOLDEN_WARMUP: dict[str, int] = {
     "turnover_std_20d": 21,
     "position_240d": 241,
     "distance_to_high_240d": 241,
+    "macd_dif_delta_pct": 2,
 }
 
 @pytest.fixture(autouse=True)
@@ -230,10 +237,10 @@ def test_scoring_warmup_snapshot() -> None:
 
 def test_catalog_counts_and_kinds() -> None:
     specs = all_factors()
-    assert len(specs) == 77
-    assert len({spec.id for spec in specs}) == 77  # id 唯一
+    assert len(specs) == 78
+    assert len({spec.id for spec in specs}) == 78  # id 唯一
     virtual = [spec for spec in specs if spec.kind == "virtual"]
-    assert len(virtual) == 52  # ma/ema 10 + 原有 26 + 扩充批次 16
+    assert len(virtual) == 53  # ma/ema 10 + 原有 26 + 扩充批次 16 + macd_dif_delta 1
     financial = [spec for spec in specs if spec.pit]
     assert len(financial) == 7
     assert all(spec.pit_source == "financial_announce" for spec in financial)
@@ -261,8 +268,8 @@ def test_get_factor_and_dependencies() -> None:
 def test_asset_type_filter() -> None:
     stock = all_factors(asset_type="stock")
     etf = all_factors(asset_type="etf")
-    assert len(stock) == 77
-    assert len(etf) == 70  # 财务 7 项仅股票
+    assert len(stock) == 78
+    assert len(etf) == 71  # 财务 7 项仅股票
 
 
 def test_register_factor_rejects_duplicate() -> None:
@@ -309,7 +316,7 @@ def test_factors_api_contract() -> None:
     assert response.status_code == 200
     payload = response.json()
     factors = payload["factors"]
-    assert len(factors) == 77
+    assert len(factors) == 78
     first = factors[0]
     assert first["id"] == "momentum_5d"
     assert first["kind"] == "base"
@@ -329,7 +336,7 @@ def test_factors_api_contract() -> None:
 def test_factors_api_asset_filter_and_validation() -> None:
     client = _client()
     etf = client.get("/api/factors", params={"asset_type": "etf"}).json()["factors"]
-    assert len(etf) == 70
+    assert len(etf) == 71
     assert all("stock" in item["asset_types"] for item in etf)
     # 非法资产类型 → 422 (fail-closed, 不静默回退全量)
     assert client.get("/api/factors", params={"asset_type": "index"}).status_code == 422

@@ -1613,6 +1613,7 @@ export interface MiningLockStatus {
   holder: {
     pid: number
     started_at?: string
+    process_started_at?: number
     role?: string
     host?: string
     schema_version?: number
@@ -3769,9 +3770,15 @@ export const api = {
   miningLockStatus: () =>
     request<MiningLockStatus>('/api/backtest/mining/lock', { quiet: true }),
 
-  miningForceReleaseLock: () =>
+  miningRecoverLock: () =>
+    request<MiningLockStatus>('/api/backtest/mining/lock/recover', { method: 'POST', quiet: true }),
+
+  miningForceReleaseLock: (expectedPid?: number) =>
     request<{ released: boolean; terminated_pid: number; reacquired: boolean }>(
-      '/api/backtest/mining/lock/force-release', { method: 'POST' },
+      '/api/backtest/mining/lock/force-release', {
+        method: 'POST', quiet: true,
+        ...(expectedPid == null ? {} : { body: JSON.stringify({ expected_pid: expectedPid }) }),
+      },
     ),
 
   miningRuns: () =>
@@ -5007,7 +5014,7 @@ export const api = {
     description?: string
     direction?: string
     rules?: string
-    execution_backend?: 'polars_expr' | 'matrix_native'
+    execution_backend?: 'polars_expr' | 'matrix_native' | 'minute_filter'
     max_rounds?: number
   }) =>
     request<AiIterateResult>('/api/strategies/ai/iterate', {
